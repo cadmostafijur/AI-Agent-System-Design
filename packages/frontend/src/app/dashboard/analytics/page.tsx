@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
             ];
             return (
               <div key={stage.stage} className="flex items-center gap-4">
-                <div className="w-32 text-sm text-gray-400 text-right flex-shrink-0">
+                <div className="w-32 text-sm text-gray-400 text-right shrink-0">
                   {stage.stage}
                 </div>
                 <div className="flex-1">

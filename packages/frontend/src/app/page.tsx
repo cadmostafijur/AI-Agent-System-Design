@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-indigo-950">
+    <div className="min-h-screen bg-linear-to-br from-gray-950 via-gray-900 to-indigo-950">
       {/* Navigation */}
       <nav className="border-b border-gray-800/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -37,7 +37,7 @@ export default function LandingPage() {
         <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
           Turn Social Messages
           <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+          <span className="text-transparent bg-clip-text bg-linear-to-r from-indigo-400 to-purple-400">
             Into Revenue
           </span>
         </h1>

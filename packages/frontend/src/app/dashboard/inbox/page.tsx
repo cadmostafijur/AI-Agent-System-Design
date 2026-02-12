@@ -55,7 +55,7 @@ export default function InboxPage() {
 
   const channelColors: Record<string, string> = {
     FACEBOOK: 'bg-blue-600',
-    INSTAGRAM: 'bg-gradient-to-br from-purple-600 to-pink-500',
+    INSTAGRAM: 'bg-linear-to-br from-purple-600 to-pink-500',
     WHATSAPP: 'bg-green-600',
     TWITTER: 'bg-gray-600',
   };
@@ -109,7 +109,7 @@ export default function InboxPage() {
                     <span className="text-sm font-medium truncate">
                       {conv.contact?.name || 'Unknown'}
                     </span>
-                    <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                    <span className="text-xs text-gray-500 ml-2 shrink-0">
                       {conv.lastMessageAt ? new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                     </span>
                   </div>

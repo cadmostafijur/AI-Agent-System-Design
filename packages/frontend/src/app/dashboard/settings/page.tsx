@@ -185,7 +185,7 @@ function ChannelSettings() {
                   <div className={clsx(
                     'w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold',
                     type === 'FACEBOOK' && 'bg-blue-600',
-                    type === 'INSTAGRAM' && 'bg-gradient-to-br from-purple-600 to-pink-500',
+                    type === 'INSTAGRAM' && 'bg-linear-to-br from-purple-600 to-pink-500',
                     type === 'WHATSAPP' && 'bg-green-600',
                     type === 'TWITTER' && 'bg-gray-600',
                   )}>

@@ -93,7 +93,7 @@ export default function DashboardOverview() {
                   <div className={clsx(
                     'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold',
                     channel === 'Facebook' && 'bg-blue-600',
-                    channel === 'Instagram' && 'bg-gradient-to-br from-purple-600 to-pink-500',
+                    channel === 'Instagram' && 'bg-linear-to-br from-purple-600 to-pink-500',
                     channel === 'WhatsApp' && 'bg-green-600',
                     channel === 'Twitter/X' && 'bg-gray-700',
                   )}>
