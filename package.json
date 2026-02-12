@@ -1,0 +1,17 @@
+{
+  "name": "replyforce-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered social media auto-reply and lead scoring SaaS platform",
+  "scripts": {
+    "install:all": "cd packages/backend && npm install && cd ../frontend && npm install && cd ../ai-agents && npm install && cd ../workers && npm install",
+    "dev:backend": "cd packages/backend && npm run dev",
+    "dev:frontend": "cd packages/frontend && npm run dev",
+    "dev:workers": "cd packages/workers && npm run dev",
+    "db:generate": "cd packages/backend && npx prisma generate",
+    "db:migrate": "cd packages/backend && npx prisma migrate dev --name init",
+    "db:push": "cd packages/backend && npx prisma db push",
+    "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d postgres redis",
+    "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml down"
+  }
+}

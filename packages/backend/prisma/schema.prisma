@@ -1,0 +1,416 @@
+// ============================================
+// ReplyForce AI — Prisma Schema
+// Multi-tenant SaaS with Row-Level Security
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Tenant (Company) ──
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(255)
+  slug      String   @unique @db.VarChar(100)
+  plan      Plan     @default(STARTER)
+  settings  Json     @default("{}")
+  logoUrl   String?  @map("logo_url") @db.VarChar(500)
+  domain    String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  users         User[]
+  channels      Channel[]
+  conversations Conversation[]
+  contacts      Contact[]
+  leads         Lead[]
+  crmConfigs    CrmConfig[]
+  brandVoice    BrandVoice?
+  auditLogs     AuditLog[]
+  tokenBudget   TokenBudget?
+
+  @@map("tenants")
+}
+
+enum Plan {
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ── User (Team Member) ──
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  email        String   @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  avatarUrl    String?  @map("avatar_url") @db.VarChar(500)
+  role         UserRole @default(AGENT)
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedConversations Conversation[] @relation("AssignedAgent")
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]     @relation("AuditActor")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  AGENT
+  VIEWER
+}
+
+// ── Refresh Token ──
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ── Channel (Connected Social Account) ──
+model Channel {
+  id              String        @id @default(uuid()) @db.Uuid
+  tenantId        String        @map("tenant_id") @db.Uuid
+  type            ChannelType
+  platformPageId  String        @map("platform_page_id") @db.VarChar(255)
+  name            String        @db.VarChar(255)
+  accessTokenEnc  String        @map("access_token_enc") @db.Text
+  tokenIv         String        @map("token_iv") @db.VarChar(64)
+  tokenExpiresAt  DateTime?     @map("token_expires_at")
+  config          Json          @default("{}")
+  status          ChannelStatus @default(ACTIVE)
+  webhookSecret   String?       @map("webhook_secret") @db.VarChar(255)
+  autoReplyEnabled Boolean      @default(true) @map("auto_reply_enabled")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([tenantId, type, platformPageId])
+  @@index([tenantId])
+  @@map("channels")
+}
+
+enum ChannelType {
+  FACEBOOK
+  INSTAGRAM
+  WHATSAPP
+  TWITTER
+}
+
+enum ChannelStatus {
+  ACTIVE
+  DISCONNECTED
+  ERROR
+  RATE_LIMITED
+}
+
+// ── Contact (External Person / Customer) ──
+model Contact {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  platformId String   @map("platform_id") @db.VarChar(255)
+  channel    ChannelType
+  name       String?  @db.VarChar(255)
+  email      String?  @db.VarChar(255)
+  phone      String?  @db.VarChar(50)
+  avatarUrl  String?  @map("avatar_url") @db.VarChar(500)
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  lead          Lead?
+
+  @@unique([tenantId, platformId, channel])
+  @@index([tenantId])
+  @@map("contacts")
+}
+
+// ── Conversation ──
+model Conversation {
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  channelId       String             @map("channel_id") @db.Uuid
+  contactId       String             @map("contact_id") @db.Uuid
+  leadId          String?            @map("lead_id") @db.Uuid
+  assignedToId    String?            @map("assigned_to_id") @db.Uuid
+  status          ConversationStatus @default(OPEN)
+  subject         String?            @db.VarChar(500)
+  lastMessageAt   DateTime?          @map("last_message_at")
+  lastMessagePreview String?         @map("last_message_preview") @db.VarChar(200)
+  messageCount    Int                @default(0) @map("message_count")
+  isAiHandled     Boolean            @default(true) @map("is_ai_handled")
+  metadata        Json               @default("{}")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  lead       Lead?    @relation(fields: [leadId], references: [id])
+  assignedTo User?    @relation("AssignedAgent", fields: [assignedToId], references: [id])
+  messages   Message[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, lastMessageAt])
+  @@index([channelId])
+  @@index([contactId])
+  @@map("conversations")
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+  SNOOZED
+  NEEDS_HUMAN
+  ARCHIVED
+}
+
+// ── Message ──
+model Message {
+  id             String      @id @default(uuid()) @db.Uuid
+  conversationId String      @map("conversation_id") @db.Uuid
+  senderType     SenderType  @map("sender_type")
+  content        String      @db.Text
+  contentType    ContentType @default(TEXT) @map("content_type")
+  platformMsgId  String?     @unique @map("platform_msg_id") @db.VarChar(255)
+  mediaUrl       String?     @map("media_url") @db.VarChar(1000)
+  aiAnalysis     Json?       @map("ai_analysis")
+  aiConfidence   Float?      @map("ai_confidence")
+  isAutoReply    Boolean     @default(false) @map("is_auto_reply")
+  deliveryStatus DeliveryStatus @default(SENT) @map("delivery_status")
+  metadata       Json        @default("{}")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([platformMsgId])
+  @@map("messages")
+}
+
+enum SenderType {
+  CONTACT    // External customer
+  AI_BOT     // AI auto-reply
+  HUMAN_AGENT // Human team member
+}
+
+enum ContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  LOCATION
+  TEMPLATE
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ── Lead ──
+model Lead {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  contactId   String   @unique @map("contact_id") @db.Uuid
+  tag         LeadTag  @default(COLD)
+  score       Int      @default(0)
+  signals     Json     @default("[]")
+  intent      String?  @db.VarChar(100)
+  confidence  Float    @default(0)
+  crmSynced   Boolean  @default(false) @map("crm_synced")
+  crmRecordId String?  @map("crm_record_id") @db.VarChar(255)
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact       Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  crmSyncs      CrmSync[]
+
+  @@index([tenantId, tag])
+  @@index([tenantId, score])
+  @@map("leads")
+}
+
+enum LeadTag {
+  HOT
+  WARM
+  COLD
+}
+
+// ── CRM Configuration ──
+model CrmConfig {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  crmType      CrmType  @map("crm_type")
+  apiKeyEnc    String?  @map("api_key_enc") @db.Text
+  apiKeyIv     String?  @map("api_key_iv") @db.VarChar(64)
+  accessToken  String?  @map("access_token") @db.Text
+  refreshToken String?  @map("refresh_token") @db.Text
+  instanceUrl  String?  @map("instance_url") @db.VarChar(500)
+  fieldMapping Json     @default("{}") @map("field_mapping")
+  syncEnabled  Boolean  @default(true) @map("sync_enabled")
+  lastSyncAt   DateTime? @map("last_sync_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, crmType])
+  @@map("crm_configs")
+}
+
+enum CrmType {
+  HUBSPOT
+  SALESFORCE
+  PIPEDRIVE
+  ZOHO
+}
+
+// ── CRM Sync Log ──
+model CrmSync {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  leadId      String        @map("lead_id") @db.Uuid
+  crmType     CrmType       @map("crm_type")
+  crmRecordId String?       @map("crm_record_id") @db.VarChar(255)
+  status      CrmSyncStatus @default(PENDING)
+  payload     Json
+  response    Json?
+  error       String?       @db.Text
+  attempts    Int           @default(0)
+  lastAttempt DateTime?     @map("last_attempt")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([leadId])
+  @@map("crm_syncs")
+}
+
+enum CrmSyncStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+  DEAD_LETTER
+}
+
+// ── Brand Voice Configuration ──
+model BrandVoice {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @unique @map("tenant_id") @db.Uuid
+  companyName    String   @map("company_name") @db.VarChar(255)
+  tone           String   @default("professional") @db.VarChar(50)
+  style          String   @default("helpful and concise") @db.VarChar(255)
+  guidelines     String?  @db.Text
+  knowledgeBase  String?  @map("knowledge_base") @db.Text
+  maxReplyLength Int      @default(500) @map("max_reply_length")
+  useEmojis      Boolean  @default(false) @map("use_emojis")
+  language       String   @default("en") @db.VarChar(10)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("brand_voices")
+}
+
+// ── Token Budget (AI Cost Control) ──
+model TokenBudget {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @unique @map("tenant_id") @db.Uuid
+  dailyLimit         Int      @map("daily_limit")
+  monthlyLimit       Int      @map("monthly_limit")
+  currentDailyUsage  Int      @default(0) @map("current_daily_usage")
+  currentMonthlyUsage Int     @default(0) @map("current_monthly_usage")
+  alertThreshold     Float    @default(0.8) @map("alert_threshold")
+  hardCap            Boolean  @default(true) @map("hard_cap")
+  lastResetAt        DateTime @default(now()) @map("last_reset_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("token_budgets")
+}
+
+// ── Audit Log (Immutable) ──
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  resource   String   @db.VarChar(100)
+  resourceId String?  @map("resource_id") @db.VarChar(255)
+  metadata   Json     @default("{}")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  result     String   @default("success") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+  @@map("audit_logs")
+}
+
+// ── Webhook Event Log (for dedup & debugging) ──
+model WebhookEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  channel     ChannelType
+  platformId  String   @map("platform_id") @db.VarChar(255)
+  eventType   String   @map("event_type") @db.VarChar(100)
+  payload     Json
+  processed   Boolean  @default(false)
+  processedAt DateTime? @map("processed_at")
+  error       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([channel, platformId])
+  @@index([channel, processed])
+  @@map("webhook_events")
+}

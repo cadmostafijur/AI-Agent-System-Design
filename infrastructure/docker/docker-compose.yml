@@ -1,0 +1,136 @@
+# ============================================
+# ReplyForce AI — Docker Compose (Development)
+# ============================================
+# Usage: docker-compose up -d
+# This sets up all required services for local development.
+
+services:
+  # ── PostgreSQL Database ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: replyforce-postgres
+    environment:
+      POSTGRES_DB: replyforce_dev
+      POSTGRES_USER: replyforce
+      POSTGRES_PASSWORD: replyforce_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U replyforce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (Cache + Queue + Pub/Sub) ──
+  redis:
+    image: redis:7-alpine
+    container_name: replyforce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  # ── Backend API ──
+  backend:
+    build:
+      context: ../../packages/backend
+      dockerfile: ../../infrastructure/docker/Dockerfile.backend
+    container_name: replyforce-backend
+    environment:
+      NODE_ENV: development
+      APP_PORT: 3001
+      DATABASE_URL: postgresql://replyforce:replyforce_dev@postgres:5432/replyforce_dev
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../packages/backend/src:/app/src
+    command: npm run dev
+
+  # ── Workers (Queue Processors) ──
+  workers:
+    build:
+      context: ../../packages/workers
+      dockerfile: ../../infrastructure/docker/Dockerfile.workers
+    container_name: replyforce-workers
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://replyforce:replyforce_dev@postgres:5432/replyforce_dev
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL_PRIMARY: gpt-4o
+      OPENAI_MODEL_FAST: gpt-4o-mini
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../packages/workers/src:/app/src
+      - ../../packages/ai-agents/src:/app/ai-agents/src
+    command: npm run dev
+
+  # ── Frontend (Next.js) ──
+  frontend:
+    build:
+      context: ../../packages/frontend
+      dockerfile: ../../infrastructure/docker/Dockerfile.frontend
+    container_name: replyforce-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_WS_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ../../packages/frontend/src:/app/src
+    command: npm run dev
+
+  # ── Redis Commander (Admin UI for Redis) ──
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: replyforce-redis-ui
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    profiles:
+      - debug
+
+  # ── BullMQ Dashboard (Queue monitoring) ──
+  bull-board:
+    image: deadly0/bull-board
+    container_name: replyforce-bull-board
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "3030:3000"
+    depends_on:
+      - redis
+    profiles:
+      - debug
+
+volumes:
+  postgres_data:
+  redis_data:
