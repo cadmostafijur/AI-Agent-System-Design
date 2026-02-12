@@ -6,9 +6,19 @@ Connect Facebook, Instagram, WhatsApp, and Twitter/X. Get AI-generated replies i
 
 ---
 
-## Preview
+## Screenshots
 
-![ReplyForce AI — Landing Page](packages/SS/screencapture-localhost-3000-2026-02-12-13_18_32.png)
+### Landing Page
+![Landing Page — Hero, stats, and feature cards](packages/SS/screencapture-localhost-3000-2026-02-12-13_18_32.png)
+
+### Dashboard Overview
+![Dashboard — KPIs, lead distribution, and active channels](packages/SS/Screenshot%202026-02-12%20132937.png)
+
+### Lead Management
+![Leads — AI-scored leads with HOT/WARM/COLD tagging](packages/SS/Screenshot%202026-02-12%20133003.png)
+
+### Analytics & AI Pipeline
+![Analytics — Lead funnel, AI agent pipeline performance, and system health](packages/SS/screencapture-localhost-3000-dashboard-analytics-2026-02-12-13_30_20.png)
 
 ---
 

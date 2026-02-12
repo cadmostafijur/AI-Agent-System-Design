@@ -23,7 +23,9 @@ export class ConversationsService {
       search?: string;
     },
   ) {
-    const { page = 1, limit = 20, status, channelId, assignedToId, search } = options;
+    const page = Number(options.page) || 1;
+    const limit = Number(options.limit) || 20;
+    const { status, channelId, assignedToId, search } = options;
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
@@ -98,9 +100,12 @@ export class ConversationsService {
   async getMessages(
     tenantId: string,
     conversationId: string,
-    page: number = 1,
-    limit: number = 50,
+    rawPage?: number | string,
+    rawLimit?: number | string,
   ) {
+    const page = Number(rawPage) || 1;
+    const limit = Number(rawLimit) || 50;
+
     // Verify conversation belongs to tenant
     const conversation = await this.prisma.conversation.findFirst({
       where: { id: conversationId, tenantId },

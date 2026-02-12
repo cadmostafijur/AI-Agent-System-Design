@@ -25,23 +25,21 @@ export class LeadsService {
       sortOrder?: 'asc' | 'desc';
     },
   ) {
-    const {
-      page = 1,
-      limit = 20,
-      tag,
-      minScore,
-      maxScore,
-      crmSynced,
-      sortBy = 'score',
-      sortOrder = 'desc',
-    } = options;
+    const page = Number(options.page) || 1;
+    const limit = Number(options.limit) || 20;
+    const tag = options.tag && options.tag !== 'undefined' ? options.tag : undefined;
+    const minScore = options.minScore !== undefined ? Number(options.minScore) : undefined;
+    const maxScore = options.maxScore !== undefined ? Number(options.maxScore) : undefined;
+    const crmSynced = options.crmSynced;
+    const sortBy = options.sortBy || 'score';
+    const sortOrder = options.sortOrder || 'desc';
 
     const skip = (page - 1) * limit;
     const where: any = { tenantId };
 
-    if (tag) where.tag = tag;
-    if (minScore !== undefined) where.score = { ...where.score, gte: minScore };
-    if (maxScore !== undefined) where.score = { ...where.score, lte: maxScore };
+    if (tag && ['HOT', 'WARM', 'COLD'].includes(tag)) where.tag = tag;
+    if (minScore !== undefined && !isNaN(minScore)) where.score = { ...where.score, gte: minScore };
+    if (maxScore !== undefined && !isNaN(maxScore)) where.score = { ...where.score, lte: maxScore };
     if (crmSynced !== undefined) where.crmSynced = crmSynced;
 
     const [items, total] = await Promise.all([

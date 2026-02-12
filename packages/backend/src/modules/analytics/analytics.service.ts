@@ -97,11 +97,12 @@ export class AnalyticsService {
   /**
    * Get response time analytics.
    */
-  async getResponseTimeStats(tenantId: string, days: number = 7) {
+  async getResponseTimeStats(tenantId: string, days?: number | string) {
     // This would typically use a time-series query
     // Simplified for this implementation
+    const numDays = Number(days) || 7;
     const sinceDate = new Date();
-    sinceDate.setDate(sinceDate.getDate() - days);
+    sinceDate.setDate(sinceDate.getDate() - numDays);
 
     const aiReplies = await this.prisma.message.findMany({
       where: {
@@ -114,7 +115,7 @@ export class AnalyticsService {
     });
 
     return {
-      period: `${days}d`,
+      period: `${numDays}d`,
       totalAutoReplies: aiReplies.length,
       avgResponseTime: '2.3s', // Placeholder — would calculate from message timestamps
       p95ResponseTime: '4.1s',
